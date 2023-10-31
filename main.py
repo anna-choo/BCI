@@ -16,6 +16,7 @@ import scipy.stats as stats
 import pickle
 from typing import OrderedDict
 import sys
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import *
 import csv 
 
@@ -185,10 +186,11 @@ class BCI_analysis:
                 # compile into each repetition for each subject
                 subject_JA_repetition_dict[subject] = JA_array.reshape(-1, data_point, 2)
         # calculate the trajectory mean
-        # try:
-        # print(subject_JA_repetition_dict.values())
-        JA_mean = np.mean(np.concatenate(list(subject_JA_repetition_dict.values())), axis = 0)
-        # except:
+        try:
+            JA_mean = np.mean(np.concatenate(list(subject_JA_repetition_dict.values())), axis = 0)
+        except:
+            print(subject_JA_repetition_dict.values())
+            print(len(subject_JA_repetition_dict.values()))
         #     print(subject_list)
         #     print(subject_JA_repetition_dict)
 
@@ -339,7 +341,10 @@ class BCI_analysis:
                 axis = "Y"
             if first_result["Feature"][i] == "External/Internal Rotation":
                 axis = "Z"
+            # try:
+            # print(average_list)
             resorted_average_list.append(average_list[first_result["Joint Angle"][i] + '_' + axis])
+            # except:
         first_result["Trial ROM"] = resorted_average_list
         return relevant_df, features_list, first_result
 
@@ -415,9 +420,9 @@ class FileDialogExample(QWidget):
             "key_JA_2touchkey_turn_STROKE"
             ]
 
-        num_buttons = len(self.button_name)  # Change this to the desired number of buttons
+        self.num_buttons = len(self.button_name)  # Change this to the desired number of buttons
 
-        for i in range(num_buttons):
+        for i in range(self.num_buttons):
             button = QPushButton(self.button_name[i])
             label = QLabel()
             self.layout.addWidget(button)
@@ -441,6 +446,7 @@ class FileDialogExample(QWidget):
         self.result_window = QMainWindow()
         result_widget = QTextEdit()
         result_widget.setPlainText(results)
+        result_widget.setAlignment(Qt.AlignCenter)  # Center-align the text in the QTextEdit
         self.result_window.setCentralWidget(result_widget)
         self.result_window.setWindowTitle('Results')
         self.result_window.setGeometry(100, 100, 600, 400)  # Adjust the window size as needed
@@ -496,16 +502,19 @@ class FileDialogExample(QWidget):
         final_score_dict = collections.defaultdict()
         analysis_function = BCI_analysis(ex.affected_side)
 
-        for i in range(0,int(len(ex.button_name)/2)):
+        number_of_stroke_files = int(ex.num_buttons/2)
+        for i in range(0, number_of_stroke_files):
             task = ex.button_name[i]
             last_underscore = task.rfind("_")
             task_name = task[:last_underscore]
             print("analysing", task_name)
             feature = analysis_function.get_feature_dict(analysis_function.analyse_dict, analysis_function.task_dict[task_name])
-
+            # print(feature)
             normative = pd.read_csv(self.selected_file_paths[i], sep = '\t')
-            stroke = pd.read_csv(self.selected_file_paths[i+7], sep = '\t')
-            df, dtw_result, norm_dist = analysis_function.main(normative, stroke, analysis_function.TOWEL_vertFold, analysis_function.analyse_dict, analysis_function.data_point)
+            stroke = pd.read_csv(self.selected_file_paths[i+number_of_stroke_files], sep = '\t')
+            # stroke = pd.read_csv(self.selected_file_paths[i+7], sep = '\t')
+            print(analysis_function.task_dict[task_name])
+            df, dtw_result, norm_dist = analysis_function.main(normative, stroke, analysis_function.task_dict[task_name], analysis_function.analyse_dict, analysis_function.data_point)
             upper_threshold_result = analysis_function.upper_threshold(dtw_result)
             _, _, ROM_result = analysis_function.get_trial_ROM(df, feature, upper_threshold_result)
             significant_vector_result = analysis_function.get_significance_vector(ROM_result, feature, analysis_function.analyse_dict)
@@ -525,15 +534,16 @@ class FileDialogExample(QWidget):
                     descending_final_score_dict[task] = "Pass"
             results_df = pd.DataFrame(list(descending_final_score_dict.items()), columns=["Task", "Result"])
 
-            # Append the results to the results text
-            self.update_results_text("Final Scores:\n")
-            self.update_results_text(results_df.to_string(index=False) + "\n\n")
 
             self.update_results_text("Processing Results:\n")
             self.update_results_text(norm_dist_result.to_string(index=False) + "\n\n")
 
-            # Display the results in a separate window
-            self.show_results(self.results_text)
+        # Append the results to the results text
+        self.update_results_text("Final Scores:\n")
+        self.update_results_text(results_df.to_string(index=False) + "\n\n")
+
+        # Display the results in a separate window
+        self.show_results(self.results_text)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
